@@ -1,0 +1,275 @@
+<form>
+  <label>EventHub Activity Dashboard</label>
+  <description>Activity Dashboard populates based on activity data</description>
+  <fieldset submitButton="false" autoRun="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="namespace" searchWhenChanged="true">
+      <label>Namespace</label>
+      <default>SOLSYS</default>
+      <initialValue>SOLSYS</initialValue>
+      <fieldForLabel>namespace</fieldForLabel>
+      <fieldForValue>namespace</fieldForValue>
+      <search>
+        <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" 
+| stats count by namespace</query>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+    <input type="dropdown" token="rgroup" searchWhenChanged="true">
+      <label>Resource Group</label>
+      <default>SPLUNKLAB</default>
+      <initialValue>SPLUNKLAB</initialValue>
+      <fieldForLabel>resource_group</fieldForLabel>
+      <fieldForValue>resource_group</fieldForValue>
+      <search>
+        <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" namespace="$namespace$"
+| stats count by resource_group</query>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+    <input type="checkbox" token="show_panel" searchWhenChanged="true">
+      <label>Show Field Summary</label>
+      <choice value="1">Yes</choice>
+      <valueSuffix></valueSuffix>
+      <delimiter> </delimiter>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <title>Activity Log Timeline</title>
+      <chart>
+        <search>
+          <query>| tstats count WHERE index=eventhub sourcetype=eventhub:activity:log by _time span=1h</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.text">Count of Events</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Activity Containers</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" 
+| stats count by namespace resource_group</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Metric Average Times</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log"
+namespace="$namespace$" resource_group="$rgroup$"
+| stats avg(resource_average) as resource_average avg(resource_max) as resource_maximum avg(resource_minimum) as resource_minimum by namespace resource_group resource_metricName
+| eval resource_average=round(resource_average,2), resource_maximum=round(resource_maximum,2), resource_minimum=round(resource_minimum,2)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel id="metricname_statistics">
+      <title>MetricName Statistics</title>
+      <input type="dropdown" token="metricname" searchWhenChanged="true">
+        <label>Metric Name</label>
+        <fieldForLabel>resource_metricName</fieldForLabel>
+        <fieldForValue>resource_metricName</fieldForValue>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log"
+| fields resource_metricName
+| stats count by resource_metricName | fields - count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <initialValue>EHAMBS</initialValue>
+      </input>
+      <chart>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" namespace="$namespace$" resource_group="$rgroup$" 
+| timechart span=1h eval(round(avg(resource_minimum),2)) as resource_min eval(round(avg(resource_average),2)) as resource_max eval(round(avg(resource_max),2)) as resource_avg by resource_metricName 
+| fields _time *"$metricname$"*</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel id="all_activity_log_metrics">
+      <title>All Activity Log Metrics</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" namespace="$namespace$" resource_group="$rgroup$"
+| stats values(resource_metricName) as "resource_metricName_detected"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <set token="metricname">$click.value2$</set>
+        </drilldown>
+      </table>
+    </panel>
+    <panel depends="$alwaysHideCSS$">
+      <title>Do not remove</title>
+      <html>
+        <style>
+         #metricname_statistics{
+         width:66% important;
+       }
+         #all_activity_log_metrics{
+         width:33% !important;
+       }
+        </style>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Activity Metric Name Statistics</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" namespace="$namespace$" resource_group="$rgroup$"
+| stats mode(resource_minimum) as min_mode mode(resource_max) as max_mode mode(resource_average) as avg_mode stdev(resource_minimum) as stdev_min stdev(resource_max) as stdev_max stdev(resource_average) as stdev_avg by resource_metricName
+| eval stdev_min=round(stdev_min,2), stdev_max=round(stdev_max,2), stdev_avg=round(stdev_avg,2)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$show_panel$">
+      <title>Field Summary</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:activity:log" namespace="$namespace$" resource_group="$rgroup$"
+| fieldsummary maxvals=5
+| search field=*{* OR field=n*</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</form>

@@ -1,0 +1,161 @@
+<form>
+  <label>Event Hub Operational Log Meta Insights</label>
+  <description>This dashboard leverages the eventhub:operational sourcetypes to provide high-level information on operations</description>
+  <fieldset submitButton="false"></fieldset>
+  <row>
+    <panel>
+      <title>Data Over Past 7 Days</title>
+      <input type="time" token="time" searchWhenChanged="true">
+        <label>Time</label>
+        <default>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+        </default>
+      </input>
+      <chart>
+        <search>
+          <query>| tstats count WHERE `azure_eventhub_index` groupby sourcetype _time span=1h
+| search sourcetype="eventhub*" OR sourcetype="*operation*"
+| timechart span=1h sum(count) by sourcetype</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Sourcetype First and Recent Data</title>
+      <table>
+        <search>
+          <query>| metadata type=sourcetypes `azure_eventhub_index`
+| search sourcetype=eventhub*
+| convert ctime(recentTime) ctime(lastTime) ctime(firstTime)
+| fields sourcetype firstTime lastTime recentTime totalCount</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <link target="_blank">search?q=index=eventhub*  sourcetype="$click.value$"&amp;earliest=&amp;latest=</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Operational Log Data Quality</title>
+      <table>
+        <search>
+          <query>index=_internal  source=*splunkd.log* (component=AggregatorMiningProcessor OR component=LineBreakingProcessor OR component=DateParserVerbose) (log_level=WARN OR log_level=ERROR)
+       | rex field=message "Context: source::(?&lt;context_source&gt;[^\|]*?)\|host::(?&lt;context_host&gt;[^\|]*?)\|(?&lt;context_sourcetype&gt;[^\|]*?)\|"
+            | eval data_source = if(isnull(data_source) AND isnotnull(context_source), context_source, data_source)
+            | eval data_host = if(isnull(data_host) AND isnotnull(context_host), context_host, data_host)
+            | eval data_sourcetype = if(isnull(data_sourcetype) AND isnotnull(context_sourcetype), context_sourcetype, data_sourcetype)
+            | search data_sourcetype=*eventhub* OR data_sourcetype=*operational*
+            | stats count(eval(component=="LineBreakingProcessor" OR component=="DateParserVerbose" OR component=="AggregatorMiningProcessor")) as total_issues
+              dc(data_host) AS "Host Count"
+              dc(data_source) AS "Source Count"
+              count(eval(component=="LineBreakingProcessor")) AS "Line Breaking Issues"
+              count(eval(component=="DateParserVerbose")) AS "Timestamp Parsing Issues"
+              count(eval(component=="AggregatorMiningProcessor")) AS "Aggregation Issues" by data_sourcetype
+            | sort - total_issues
+            | rename
+              data_sourcetype as Sourcetype
+              total_issues as "Total Issues"</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Field Summary</title>
+      <input type="dropdown" token="stype" searchWhenChanged="true">
+        <label>Select Sourcetype</label>
+        <choice value="*">Select ST...</choice>
+        <default>*</default>
+        <prefix>"</prefix>
+        <suffix>"</suffix>
+        <initialValue>*</initialValue>
+        <fieldForLabel>sourcetype</fieldForLabel>
+        <fieldForValue>sourcetype</fieldForValue>
+        <search>
+          <query>| metadata type=sourcetypes `azure_eventhub_index`
+| stats count by sourcetype
+| search sourcetype=*eventhub*</query>
+          <earliest>0</earliest>
+          <latest></latest>
+        </search>
+      </input>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype=$stype$
+| fieldsummary maxvals=3
+| search field=*{*
+| fields field count distinct_count is_exact max mean min values</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</form>

@@ -1,0 +1,20 @@
+<nav search_view="search" color=" #007FFF">
+  <collection label="EventHub Environment Analysis" default='true'>
+    <view name="eventhub_meta_analysis" />
+  </collection>
+  <collection label="Log Analysis" >
+    <view name="eventhub_activity_dashboard" />
+    <view name="eventhub_audit_dashboard" />
+    <collection label="Operational Activity" >
+      <view name="eventhub_operational_meta_insights"/>
+      <view name="eventhub_operational_user_activity"/>
+      <view name="eventhub_operational_activity"/>
+      <view name="eventhub_operational_vm_activity"/>
+    </collection>
+  </collection>
+  <view name="search" />
+  <view name="datasets" />
+  <view name="reports" />
+  <view name="alerts" />
+  <view name="dashboards" />
+</nav>

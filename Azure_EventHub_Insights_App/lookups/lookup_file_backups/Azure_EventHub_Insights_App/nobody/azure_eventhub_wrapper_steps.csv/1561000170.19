@@ -1,0 +1,14 @@
+error_category,suggested_steps
+1,- Define Environment Variables for the wrapper script
+1,- Restart Splunk as Splunk User
+1,- Ensure Splunk User can run eventhubconsumer and python3 executable
+10,- Informational Message - Do nothing
+2,- Verify inputs stanza for wrapper scripted inputs
+4,- Part of another error - Can be resolved if other errors are mitigated
+5,- Notification Error -  Either Splunk is restarting/shutting down or Process is stopping
+6,- Notification Error - Part of other errors. Message gets printed to stdout
+3,"- SubError: Try steps from category 1 - if it does not work, reinstall eventhub software with --user parameter"
+7,- Python Self Explanatory Error - Usually related to file/directory does not exist. Please Check permissions on the path
+8,- Azure Event Hub SDK Error - if repeats verify your inputs otherwise reinstall
+9,- Usually Informational - Can ignore if this a one off event
+11,"- add ""passAuth=admin"" in the scripted inputs for the wrapper.py script"

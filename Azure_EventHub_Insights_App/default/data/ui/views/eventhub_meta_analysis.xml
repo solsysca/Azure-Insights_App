@@ -1,0 +1,347 @@
+<form>
+  <label>EventHub Meta Analysis</label>
+  <fieldset submitButton="false">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time</label>
+      <default>
+        <earliest>-7d@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <title>Event Hub Detected</title>
+      <single>
+        <search>
+          <query>| metasearch `azure_eventhub_index`
+| rex field=source "(?P&lt;eventhub&gt;\w+)\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$"
+| timechart distinct_count(eventhub)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">search?q=| metasearch index=eventhub | rex field=source "(?P&lt;eventhub&gt;\w+)\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$" 
+| stats latest(_time) by eventhub eventhub_entity partition&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Total Event Hub Entities Detected</title>
+      <single>
+        <search>
+          <query>| metasearch `azure_eventhub_index` 
+| rex field=source "(?P&lt;eventhub&gt;\w+)\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$"
+| timechart distinct_count(eventhub_entity) as eventhub_entity
+| eval eventhub_entity=eventhub_entity+1</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">search?q=| metasearch index=eventhub | rex field=source "(?P&lt;eventhub&gt;\w+)\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$" 
+| stats latest(_time) by eventhub eventhub_entity partition&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>License Usage Over Time (GB)</title>
+      <chart>
+        <search>
+          <query>index=_internal source=*license_usage.log* type="Usage" sourcetype=eventhub*  earliest=-7d@d
+| eval h=if(len(h)=0 OR isnull(h),"(SQUASHED)",h) 
+| eval s=if(len(s)=0 OR isnull(s),"(SQUASHED)",s) 
+| eval idx=if(len(idx)=0 OR isnull(idx),"(UNKNOWN)",idx) 
+| bin _time span=1d 
+| stats sum(b) as b by _time, host, pool, s, st, h, idx 
+| search host=Splunk2 
+| timechart span=1d sum(b) AS volumeB by idx fixedrange=false 
+| join type=outer _time 
+    [ search index=_internal host=Splunk2 source=*license_usage.log* type="RolloverSummary" earliest=-30d@d 
+    | eval _time=_time - 43200 
+    | bin _time span=1d 
+    | stats latest(stacksz) AS "stack size" by _time] 
+| fields - _timediff 
+| foreach "*" 
+    [ eval &lt;&lt;FIELD&gt;&gt;=round('&lt;&lt;FIELD&gt;&gt;'/1024/1024/1024, 3)] 
+| fields - "stack size" 
+| fields - "pool size"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>All Eventtypes Detected in Splunk</title>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` 
+| fields eventtype
+| chart sparkline count by eventtype
+| search eventtype=azure* OR eventtype=*eventhub*</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <link target="_blank">search?q=`azure_eventhub_index` eventtype="$click.value$"&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Latency by Sourcetype</title>
+      <table>
+        <search>
+          <query>| metadata type=sourcetypes `azure_eventhub_index` 
+| eval latency_m= round((recentTime-lastTime)/60,2)
+| eval latency_type=if(latency_m&lt;0,"Logging in the Future",if(latency_m&gt;0,"Logging Behind","Logging on Time")), latency_m=abs(latency_m)
+| convert ctime(firstTime) ctime(lastTime) ctime(recentTime)
+| sort - latency_m
+| table sourcetype latency_m latency_type firstTime lastTime recentTime</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">cell</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <drilldown>
+          <link target="_blank">search?q=`azure_eventhub_index` sourcetype="$click.value$"&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Timeline of Events</title>
+      <chart>
+        <search>
+          <query>| tstats count WHERE `azure_eventhub_index` groupby sourcetype _time span=6h
+| timechart span=6h sum(count) by sourcetype</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Total Count of Event Hub Sourcetypes Over Time $time.earliest$</title>
+      <chart>
+        <search>
+          <query>| tstats count WHERE `azure_eventhub_index`  groupby sourcetype
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Event Hubs Data Sourcetype</title>
+      <input type="dropdown" token="column" searchWhenChanged="true">
+        <label>Sort By</label>
+        <default>max_char</default>
+        <initialValue>max_char</initialValue>
+        <fieldForLabel>column</fieldForLabel>
+        <fieldForValue>column</fieldForValue>
+        <search>
+          <query>| makeresults | eval raw_p10=0,raw_p90=0,max_char=0, avg_char_len=0
+| transpose| search column!=_time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </input>
+      <table>
+        <search>
+          <query>`azure_eventhub_index` sourcetype="eventhub:*"
+| fields _raw sourcetype
+| eval raw_len=len(_raw)
+| stats p10(raw_len) as raw_p10 p90(raw_len) as raw_p90 avg(raw_len) as avg_char_len max(raw_len) as max_char by sourcetype
+| eval avg_char_len=round(avg_char_len,0)
+| sort - "$column$"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Event Hub Entity Partitions</title>
+      <chart>
+        <search>
+          <query>| metasearch `azure_eventhub_index` 
+| rex field=source "\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$"
+| stats count by eventhub_entity partition
+| fields - count
+| eventstats max(partition) as mx by eventhub_entity
+| stats max(mx) as partitions by eventhub_entity
+| eval partitions=partitions+1
+| sort - partitions</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <drilldown>
+          <link target="_blank">search?q=| metasearch index=eventhub | rex field=source "(?P&lt;eventhub&gt;\w+)\_(?P&lt;eventhub_entity&gt;[^_]+)\_(?P&lt;partition&gt;\d+).log$" 
+| stats latest(_time) by eventhub eventhub_entity partition&amp;earliest=0&amp;latest=</link>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+</form>
